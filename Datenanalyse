@@ -1,0 +1,52 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_squared_error
+import matplotlib.ticker as ticker
+
+# 1. Laden der CSV-Datei
+data_path = '/home/mati/gesammelte_messungen.csv'
+algae_data = pd.read_csv(data_path)
+
+# Sicherstellen, dass 'Konzentration' korrekt als numerischer Typ behandelt wird
+# Da die Konzentration in der GUI-Oberfläche eingegeben wird, speichert das Programm diese als Zeichenkette.
+# Für das Auslesen und die korrekte mathematische Verarbeitung der Daten ist es notwendig, diese Zeichenketten in Fließkommazahlen umzuwandeln.
+algae_data['Konzentration'] = pd.to_numeric(algae_data['Konzentration'], errors='coerce')
+
+# 2. Berechnung der Korrelation und Auswahl der vier Wellenlaengen mit der staerksten negativen Korrelation
+correlation = algae_data.corr()['Konzentration'].drop('Konzentration')
+# nsmallest(4): Diese Methode gibt die 4 kleinsten Werte zurück, also die 4 stärksten negativen Korrelationen.
+four_strongest_corr = correlation.nsmallest(4)
+print(four_strongest_corr)
+
+# 3. Plotting und lineare Regression fuer jede Wellenlaenge einzeln
+mse_values = {}  # Dictionary für die mittlere quadratische Abweichung für jede der 4 Korrelationen
+
+# Für jede Spalte wird ein Streudiagramm mit einer Regressionslinie erstellt
+for wave in four_strongest_corr.index:
+    plt.figure(figsize=(7, 5))
+    
+    sns.regplot(data=algae_data, x='Konzentration', y=wave, line_kws={"color": "red"})
+    plt.title(f'Konzentration vs. {wave} (mit linearer Regression)')
+    plt.xlabel('Konzentration')
+    plt.ylabel('Intensitaet')
+    
+    # Lineare Regression
+    X = algae_data[['Konzentration']]
+    y = algae_data[wave]
+    lr = LinearRegression().fit(X, y)
+    y_pred = lr.predict(X)
+    
+    # Berechnung und Speicherung des MSE
+    mse = mean_squared_error(y, y_pred)
+    mse_values[wave] = mse
+    
+    # Ausgabe der Gleichung der linearen Regression. lr.coef ist m (Steigungskoeefizient), lr.intercept ist b (Achsenabschnitt)
+    print(f"Gleichung der linearen Regression fuer {wave}: y = {lr.coef_[0]}x + {lr.intercept_}")
+
+plt.show() # Alle erstellten Plots werden angezeigt, sobald die Schleife durchgelaufen ist.
+
+# 4. Identifizierung der besten linearen Regression bassierend auf der kleinsten Mittleren quadratischen Abweichung
+best_wave = min(mse_values, key=mse_values.get)
+print(f"Die beste lineare Regression basiert auf der Wellenlaenge {best_wave} mit einem MSE von {mse_values[best_wave]}")
