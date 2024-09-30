@@ -1,0 +1,71 @@
+import tkinter as tk
+from tkinter import ttk, messagebox
+import threading
+import time
+import board
+import csv
+from adafruit_as7341 import AS7341
+
+# Sensorinitialisierung
+i2c = board.I2C()  # verwendet board.SCL und board.SDA
+sensor = AS7341(i2c)
+
+# LED Einstellungen
+sensor.led_current = 5  # Reduzierter LED-Strom auf 5mA
+sensor.led = True  # Schaltet die LED ein
+
+channels = ['415nm', '445nm', '480nm', '515nm', '555nm', '590nm', '630nm', '680nm', 'Clear', 'NIR']
+filename = "gesammelte_messungen.csv"  # Eine Datei fuer alle Messungen
+probe = 0
+
+def collect_and_save_data(concentration, progress_var, probe_label, start_button):
+    global probe, filename, channels
+    probe += 1
+    values = [
+        sensor.channel_415nm, sensor.channel_445nm, sensor.channel_480nm,
+        sensor.channel_515nm, sensor.channel_555nm, sensor.channel_590nm,
+        sensor.channel_630nm, sensor.channel_680nm, sensor.channel_clear,
+        sensor.channel_nir
+    ]
+    measurement = [probe, concentration.get()] + values  # Konzentration wird aus dem Eingabefeld gelesen
+    
+    # Daten in die CSV-Datei schreiben
+    with open(filename, 'a', newline='') as csvfile:
+        csvwriter = csv.writer(csvfile)
+        if probe == 1:  # Kopfzeile nur beim ersten Durchgang schreiben
+            csvwriter.writerow(["Probe", "Algen/Liter"] + channels)
+        csvwriter.writerow(measurement)
+
+    probe_label.config(text=f"Aktuelle Probe: {probe}/10")
+    progress_var.set(probe * 10)
+    time.sleep(1)  # Kurze Pause, um das GUI zu aktualisieren
+    
+    if probe < 10:
+        start_button['state'] = tk.NORMAL  # Button wieder aktivieren
+    else:
+        messagebox.showinfo("Fertig", "Alle Proben wurden analysiert und gespeichert.")
+        start_button['state'] = tk.DISABLED  # Deaktiviert den Button, wenn alle Proben analysiert wurden
+
+def start_measurement(concentration_entry, progress_var, probe_label, start_button):
+    start_button['state'] = tk.DISABLED  # Button waehrend der Messung deaktivieren
+    threading.Thread(target=collect_and_save_data, args=(concentration_entry, progress_var, probe_label, start_button)).start()
+
+# GUI Setup
+root = tk.Tk()
+root.title("Lichtmessung")
+
+probe_label = tk.Label(root, text="Aktuelle Probe: 0/10")
+probe_label.pack(pady=5)
+
+concentration_entry = tk.StringVar()
+tk.Label(root, text="Konzentration:").pack(pady=5)
+tk.Entry(root, textvariable=concentration_entry).pack(pady=5)
+
+progress_var = tk.IntVar()
+progress_bar = ttk.Progressbar(root, maximum=100, variable=progress_var)
+progress_bar.pack(pady=20)
+
+start_button = tk.Button(root, text="Messung starten", command=lambda: start_measurement(concentration_entry, progress_var, probe_label, start_button))
+start_button.pack(pady=10)
+
+root.mainloop()
