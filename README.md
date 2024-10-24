@@ -1,0 +1,1 @@
+Absorbtionsspektrenmessung mit einem Raspberry PI. Die Messwerte müssen gegen tatsächlich gemessene Mikroalgenkonzentrationen gegenübergestellt werden. Mikroskopie, bereits vorhandene Absorbtiosnmessdaten.
